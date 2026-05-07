@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Water Gains Calculator — Stewards of Nature</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --son-dark:#0f5c1a;--son-mid:#1a7a28;--son-lime:#7cc522;--son-pale:#e8f5d4;
+  --bg:#f9faf7;--surface:#ffffff;--surface2:#f2f5ee;--border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.18);
+  --text:#1c2b1c;--text2:#4a5e4a;--text3:#8a9e8a;--radius:8px;--radius-lg:12px;
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:0 0 4rem}
+
+/* Top bar with tree canopy */
+.topbar{position:relative;background:var(--son-dark);overflow:hidden;min-height:90px}
+.topbar-leaves{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;object-position:top center;opacity:0.22;pointer-events:none}
+.topbar-inner{position:relative;z-index:2;padding:18px 28px;display:flex;align-items:center;gap:20px}
+.topbar-text{color:#fff;line-height:1.5;border-left:1px solid rgba(255,255,255,.25);padding-left:18px}
+.topbar-text strong{display:block;font-size:16px;font-weight:500;letter-spacing:.01em}
+.topbar-text span{font-size:12px;opacity:.7}
+.topbar-badge{display:inline-block;margin-top:5px;padding:2px 9px;background:var(--son-lime);color:var(--son-dark);border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.04em}
+
+.page{max-width:820px;margin:0 auto;padding:2rem 1.5rem}
+
+/* Formula */
+.formula{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--son-lime);border-radius:var(--radius);padding:12px 16px;margin-bottom:1.75rem;font-size:13px;color:var(--text2);line-height:1.6}
+.formula code{display:block;margin-top:6px;font-size:12.5px;color:var(--text);background:var(--surface2);padding:7px 11px;border-radius:4px;font-family:'Courier New',monospace}
+
+.section{margin-bottom:1.75rem}
+.section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:10px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:600px){.grid2,.grid3{grid-template-columns:1fr}}
+
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:13px;color:var(--text2)}
+.field input,.field select{height:38px;border:1px solid var(--border2);border-radius:var(--radius);padding:0 11px;font-size:14px;background:var(--surface);color:var(--text);transition:border-color .15s;appearance:none;-webkit-appearance:none}
+.field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+.field input:focus,.field select:focus{outline:none;border-color:var(--son-mid);box-shadow:0 0 0 3px rgba(26,122,40,.1)}
+.field input:disabled{opacity:.4;cursor:not-allowed}
+.field .hint{font-size:11px;color:var(--text3)}
+.date-row{display:flex;gap:8px;align-items:flex-end}
+.date-row input{flex:1}
+.unk-btn{white-space:nowrap;height:38px;padding:0 14px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--surface);color:var(--text2);font-size:13px;cursor:pointer;transition:all .15s}
+.unk-btn.active{background:var(--son-pale);border-color:var(--son-mid);color:var(--son-dark);font-weight:500}
+
+.sp-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.125rem;margin-bottom:10px}
+.sp-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.sp-num{font-size:12px;font-weight:600;color:var(--son-mid);background:var(--son-pale);padding:3px 10px;border-radius:20px}
+.rm-btn{background:none;border:none;cursor:pointer;font-size:12px;color:var(--text3);padding:4px 8px;border-radius:var(--radius);transition:all .15s}
+.rm-btn:hover{color:#c0392b;background:#fdf0ee}
+
+.add-btn{width:100%;height:40px;border:1.5px dashed var(--border2);border-radius:var(--radius);background:none;cursor:pointer;font-size:13px;color:var(--text2);margin-bottom:1.5rem;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px}
+.add-btn:hover{background:var(--surface);border-color:var(--son-mid);color:var(--son-mid);border-style:solid}
+.calc-btn{width:100%;height:50px;background:var(--son-mid);color:#fff;border:none;border-radius:var(--radius);font-size:15px;font-weight:500;cursor:pointer;transition:background .15s,transform .1s}
+.calc-btn:hover{background:var(--son-dark)}
+.calc-btn:active{transform:scale(.99)}
+.excel-btn{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 22px;background:#fff;border:1.5px solid var(--son-mid);border-radius:var(--radius);color:var(--son-dark);font-size:14px;font-weight:500;cursor:pointer;transition:all .15s}
+.excel-btn:hover{background:var(--son-pale)}
+.excel-btn svg{width:18px;height:18px;stroke:var(--son-mid);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+
+.divider{height:1px;background:var(--border);margin:1.75rem 0}
+.results{display:none}
+.results.show{display:block}
+.result-header{display:flex;align-items:center;gap:10px;margin-bottom:1.25rem}
+.result-header h2{font-size:20px;font-weight:500}
+.result-badge{font-size:12px;background:var(--son-pale);color:var(--son-dark);padding:3px 10px;border-radius:20px;font-weight:500}
+
+/* 4-card grid */
+.result-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.5rem}
+@media(max-width:600px){.result-cards{grid-template-columns:1fr 1fr}}
+.rcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem;text-align:center}
+.rcard.hl{border-color:var(--son-mid);background:var(--son-pale)}
+.rcard.hl2{border-color:var(--son-lime);background:#f0fadf}
+.rlabel{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:6px;line-height:1.4}
+.rvalue{font-size:24px;font-weight:400;color:var(--text);letter-spacing:-.02em;margin-bottom:2px}
+.rcard.hl .rvalue,.rcard.hl2 .rvalue{color:var(--son-dark)}
+.runit{font-size:11px;color:var(--text3)}
+.retro-note{font-size:12px;color:var(--son-dark);background:var(--son-pale);border:1px solid rgba(26,122,40,.2);border-radius:var(--radius);padding:8px 13px;margin-bottom:1.25rem;line-height:1.6}
+.retro-note strong{font-weight:600}
+
+.factor-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1.5rem}
+.pill{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--text2)}
+.pill strong{color:var(--text);font-weight:600}
+
+.tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.25rem;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:var(--surface2);font-weight:600;text-align:left;padding:9px 13px;border-bottom:1px solid var(--border);color:var(--text2);font-size:12px;white-space:nowrap}
+td{padding:9px 13px;border-bottom:1px solid var(--border);color:var(--text)}
+tr:last-child td{border-bottom:none}
+.tr-total td{background:var(--son-pale);font-weight:600;color:var(--son-dark)}
+.export-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.125rem}
+.register-check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);padding:10px 14px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border);cursor:pointer;margin-bottom:12px}
+.register-check input{width:16px;height:16px;accent-color:var(--son-mid)}
+.export-row{display:flex;align-items:center;gap:12px}
+.export-status{font-size:12px;color:var(--text3);line-height:1.5}
+.page-footer{margin-top:3rem;padding-top:1.5rem;border-top:1px solid var(--border);font-size:11px;color:var(--text3);line-height:1.7;text-align:center}
+.page-footer a{color:var(--son-mid);text-decoration:none}
+.page-footer a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <!-- tree canopy image encoded inline as data URI placeholder — user's actual image used via JS below -->
+  <img class="topbar-leaves" id="canopy-img" src="" alt="">
+  <div class="topbar-inner">
+    <div class="topbar-text">
+      <strong>Water Gains Calculator</strong>
+      <span>Stewards of Nature — IAP Removal Impact</span>
+      <div><span class="topbar-badge">RSB / LE MAITRE ET AL. 2016</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+
+  <div class="formula">
+    <strong>Core formula:</strong>
+    <code>Gains (m³/ha/yr) = MAR (mm) × Reduction Factor × Canopy Cover × Riparian Factor × 10</code>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Site parameters</div>
+    <div class="grid3" style="margin-bottom:12px">
+      <div class="field">
+        <label>Site / catchment name</label>
+        <input type="text" id="catchment" placeholder="e.g. Hex River M10B">
+      </div>
+      <div class="field">
+        <label>Mean Annual Runoff — MAR (mm/yr)</label>
+        <input type="number" id="mar" placeholder="e.g. 57.64" step="0.01">
+        <span class="hint">From Cape Farm Mapper or WR2012</span>
+      </div>
+      <div class="field">
+        <label>Biome / riparian type</label>
+        <select id="biome">
+          <option value="">Select biome…</option>
+          <option value="1">Dryland (non-riparian) — ×1.0</option>
+          <option value="1.5">Fynbos biome — ×1.5</option>
+          <option value="2">Grassland and savanna — ×2.0</option>
+          <option value="1.2">Albany thicket — ×1.2</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid3" style="margin-bottom:12px">
+      <div class="field">
+        <label>Total invaded area (ha)</label>
+        <input type="number" id="invaded" placeholder="e.g. 41" step="0.01">
+      </div>
+      <div class="field">
+        <label>IAP density / condensed factor (0–1)</label>
+        <input type="number" id="density" placeholder="e.g. 0.68" step="0.01" min="0" max="1" value="1">
+        <span class="hint">1 = full canopy coverage</span>
+      </div>
+      <div class="field">
+        <label>GPS coordinates (optional)</label>
+        <input type="text" id="coords" placeholder="e.g. -33.9249, 18.4241">
+        <span class="hint">Decimal degrees, lat / lon</span>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label>Date of initial clearing</label>
+        <div class="date-row">
+          <input type="date" id="clearing-date">
+          <button class="unk-btn" id="unk-btn" onclick="toggleUnknown()">Unknown</button>
+        </div>
+        <span class="hint" id="date-hint">Used to calculate cumulative water gains since clearing</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-label">Alien invasive species — <span id="sp-count">0</span> added</div>
+    <div id="sp-list"></div>
+    <button class="add-btn" onclick="addSp()">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="7" y1="1" x2="7" y2="13"/><line x1="1" y1="7" x2="13" y2="7"/></svg>
+      Add species
+    </button>
+  </div>
+
+  <button class="calc-btn" onclick="calculate()">Calculate water gains</button>
+
+  <div class="results" id="results">
+    <div class="divider"></div>
+    <div class="result-header">
+      <h2>Results</h2>
+      <span class="result-badge" id="res-site">Site</span>
+    </div>
+
+    <div id="retro-banner"></div>
+
+    <div class="result-cards" id="result-cards">
+      <div class="rcard">
+        <div class="rlabel">Annual gains per ha</div>
+        <div class="rvalue" id="r-mmyr">—</div>
+        <div class="runit">mm / year</div>
+      </div>
+      <div class="rcard hl">
+        <div class="rlabel">Annual gains per ha</div>
+        <div class="rvalue" id="r-m3ha">—</div>
+        <div class="runit">m³ / ha / year</div>
+      </div>
+      <div class="rcard">
+        <div class="rlabel">Annual total gains</div>
+        <div class="rvalue" id="r-total">—</div>
+        <div class="runit">m³ &nbsp;·&nbsp; <span id="r-ml">—</span> ML</div>
+      </div>
+      <div class="rcard hl2" id="r-cumulative-card" style="display:none">
+        <div class="rlabel" id="r-cumulative-label">Cumulative gains</div>
+        <div class="rvalue" id="r-cumulative">—</div>
+        <div class="runit" id="r-cumulative-unit">m³ total</div>
+      </div>
+    </div>
+
+    <div class="section-label">Applied factors</div>
+    <div class="factor-row" id="factor-row"></div>
+
+    <div class="section-label">Species breakdown</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Species</th><th>Stage</th><th>Canopy cover</th>
+            <th>Condensed ha</th><th>Red. factor</th>
+            <th>Gains (mm/yr)</th><th>Gains (m³/ha/yr)</th><th>Annual total (m³)</th>
+          </tr>
+        </thead>
+        <tbody id="tbl-body"></tbody>
+      </table>
+    </div>
+
+    <div class="section-label">Export</div>
+    <div class="export-box">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6">Export results to Excel. Each download creates a file with all site inputs, species detail and cumulative gains — use these files to build a running site tracker.</p>
+      <label class="register-check">
+        <input type="checkbox" id="register-cb" checked>
+        Register this calculation in the tracking log
+      </label>
+      <div class="export-row">
+        <button class="excel-btn" onclick="exportExcel()">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Download Excel tracker
+        </button>
+        <span class="export-status" id="export-status">Includes all inputs, species breakdown and cumulative figures.</span>
+      </div>
+    </div>
+
+    <div style="font-size:12px;color:var(--text3);line-height:1.6;padding:10px 0">
+      Formula: Gains (m³/ha/yr) = MAR × Reduction Factor × Canopy Cover × Riparian Factor × 10 &nbsp;|&nbsp;
+      Le Maitre et al. (2016), Water SA, 42(4)
+    </div>
+  </div>
+
+  <footer class="page-footer">
+    Based on the <a href="https://rsb.org/wp-content/uploads/2025/01/rsb-water-impact-methodology_water-gains-through-removal-of-invasive-alien-plants.pdf" target="_blank">RSB Water Impact Methodology</a>
+    and Le Maitre et al. (2016) &nbsp;|&nbsp;
+    <a href="https://www.stewardsofnature.co.za" target="_blank">stewardsofnature.co.za</a>
+  </footer>
+</div>
+
+<script>
+const SD={
+  "Acacia baileyana":[0.86,0.86,0.5,0.1,0.25],"Acacia borleae":[0.5,0,0.25,0.1,0.25],"Acacia caffra":[0.5,0,0.25,0.1,0.25],
+  "Acacia cyclops":[0.86,0.86,0.25,0.1,0.25],"Acacia dealbata":[0.9,0.9,0.5,0.1,0.5],"Acacia decurrens":[0.9,0.9,0.5,0.1,0.5],
+  "Acacia elata":[0.86,0.86,0.5,0.1,0.5],"Acacia implexa":[0.86,0.86,0.25,0.1,0.25],"Acacia karroo":[0.5,0,0.25,0.1,0.25],
+  "Acacia longifolia":[0.9,0.9,0.5,0.1,0.5],"Acacia mearnsii":[0.9,0.9,0.5,0.1,0.5],"Acacia melanoxylon":[0.9,0.9,0.5,0.1,0.5],
+  "Acacia mellifera":[0.5,0,0.25,0.1,0.25],"Acacia nilotica":[0.5,0,0.25,0.1,0.25],"Acacia paradoxa":[0.86,0.86,0.5,0.1,0.5],
+  "Acacia podalyriifolia":[0.86,0.86,0.5,0.1,0.5],"Acacia pycnantha":[0.86,0.86,0.5,0.1,0.5],"Acacia saligna":[0.86,0.86,0.5,0.1,0.5],
+  "Acacia stricta":[0.86,0.86,0.5,0.1,0.25],"Acer negundo":[0.86,0.86,0.25,0.1,0],"Ailanthus altissima":[0.5,0.5,0.25,0.1,0.25],
+  "Albizia lebbeck":[0.5,0.5,0.25,0.1,0],"Casuarina cunninghamiana":[0.9,0.9,0.25,0.1,0.25],"Casuarina equisetifolia":[0.9,0.9,0.25,0.1,0.25],
+  "Chromolaena odorata":[0.9,0.9,0.25,0.1,0],"Eucalyptus camaldulensis":[0.9,0.72,0.5,0.1,0.5],"Eucalyptus cladocalyx":[0.9,0.72,0.5,0.1,0.5],
+  "Eucalyptus globulus":[0.9,0.72,0.5,0.1,0.5],"Eucalyptus grandis":[0.9,0.72,0.5,0.1,0.5],"Eucalyptus sp.":[0.9,0.72,0.5,0.1,0.5],
+  "Gleditsia triacanthos":[0.87,0.87,0.25,0.1,0.5],"Hakea drupacea":[0.78,0.78,0.25,0.1,0],"Hakea sericea":[0.78,0.78,0.25,0.1,0],
+  "Jacaranda mimosifolia":[0.87,0.87,0.25,0.1,0.25],"Lantana camara":[0.9,0.9,0.25,0.1,0.25],"Leucaena leucocephala":[0.5,0.5,0.25,0.1,0.25],
+  "Melaleuca quinquenervia":[0.72,0.72,0.25,0.1,0.25],"Melia azedarach":[0.87,0.87,0.25,0.1,0.25],"Nerium oleander":[0.86,0.86,0.25,0.1,0.25],
+  "Paraserianthes lophantha":[0.86,0.86,0.25,0.1,0.25],"Parkinsonia aculeata":[0.5,0.5,0.25,0.1,0.25],
+  "Pinus canariensis":[0.87,0.57,0.25,0.1,0.25],"Pinus elliottii":[0.87,0.57,0.25,0.1,0],"Pinus halepensis":[0.87,0.57,0.25,0.1,0],
+  "Pinus patula":[0.87,0.57,0.25,0.1,0],"Pinus pinaster":[0.87,0.57,0.25,0.1,0],"Pinus radiata":[0.87,0.57,0.25,0.1,0],
+  "Pinus sp.":[0.87,0.57,0.25,0.1,0],"Pinus taeda":[0.87,0.57,0.25,0.1,0],"Pittosporum undulatum":[0.86,0.86,0.25,0.1,0.25],
+  "Populus sp.":[0.87,0.87,0.25,0.1,0.5],"Prosopis glandulosa":[0.86,0.64,0.25,0.1,0.5],"Prosopis sp.":[0.86,0.64,0.25,0.1,0.5],
+  "Psidium guajava":[0.5,0.5,0.25,0.1,0.25],"Robinia pseudoacacia":[0.5,0.5,0.25,0.1,0.5],
+  "Salix babylonica":[0.87,0.87,0.25,0.1,0.25],"Salix fragilis":[0.87,0.87,0.25,0.1,0.25],"Salix spp":[0.87,0.87,0.25,0.1,0.25],
+  "Schinus molle":[0.86,0.86,0.25,0.1,0.25],"Schinus terebinthifolius":[0.86,0.86,0.25,0.1,0.25],
+  "Sesbania punicea":[0.86,0.86,0.25,0.1,0],"Tamarix aphylla":[0.9,0.9,0.25,0.1,0.25],"Tamarix sp.":[0.9,0.9,0.25,0.1,0.25],
+  "Other / unknown":[0.5,0.5,0.25,0.1,0.25]
+};
+const STAGES=["Mature Optimal","Mature Sub-optimal","Young","Seedling","Coppice"];
+const BMLAB={"1":"Dryland (×1.0)","1.5":"Fynbos (×1.5)","2":"Grassland / savanna (×2.0)","1.2":"Albany thicket (×1.2)"};
+let seq=0,dateUnknown=false,lastRows=[],lastMeta={};
+
+function toggleUnknown(){
+  dateUnknown=!dateUnknown;
+  const btn=document.getElementById('unk-btn');
+  const inp=document.getElementById('clearing-date');
+  btn.classList.toggle('active',dateUnknown);
+  inp.disabled=dateUnknown;
+  document.getElementById('date-hint').textContent=dateUnknown?'Marked as unknown — cumulative gains will not be calculated':'Used to calculate cumulative water gains since clearing';
+  if(dateUnknown) inp.value='';
+}
+
+function getYearsSince(dateStr){
+  if(!dateStr||dateUnknown) return null;
+  const d=new Date(dateStr);
+  if(isNaN(d)) return null;
+  const now=new Date();
+  const diff=(now-d)/(1000*60*60*24*365.25);
+  return diff>0?diff:null;
+}
+
+function spOpts(){return Object.keys(SD).sort().map(s=>`<option value="${s}">${s}</option>`).join('')}
+function updCount(){document.getElementById('sp-count').textContent=document.querySelectorAll('.sp-block').length}
+
+function addSp(){
+  seq++;const n=seq;
+  const d=document.createElement('div');
+  d.className='sp-block';d.id='sp-'+n;
+  d.innerHTML=`<div class="sp-header">
+    <span class="sp-num">Species ${document.querySelectorAll('.sp-block').length+1}</span>
+    <button class="rm-btn" onclick="rmSp('sp-${n}')">✕ Remove</button>
+  </div>
+  <div class="grid3">
+    <div class="field"><label>Species name</label>
+      <select class="s-name"><option value="">Select…</option>${spOpts()}</select></div>
+    <div class="field"><label>Maturity stage</label>
+      <select class="s-stage"><option value="">Select stage…</option>${STAGES.map(s=>`<option>${s}</option>`).join('')}</select></div>
+    <div class="field"><label>Canopy cover (0–1)</label>
+      <input type="number" class="s-canopy" placeholder="e.g. 0.53" step="0.01" min="0" max="1">
+      <span class="hint">e.g. 53% cover = 0.53</span></div>
+  </div>`;
+  document.getElementById('sp-list').appendChild(d);
+  updCount();
+}
+
+function rmSp(id){
+  document.getElementById(id)?.remove();
+  document.querySelectorAll('.sp-block').forEach((b,i)=>b.querySelector('.sp-num').textContent='Species '+(i+1));
+  updCount();
+}
+
+function fmt(n,d=2){return parseFloat(n.toFixed(d)).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d})}
+function fmtI(n){return Math.round(n).toLocaleString()}
+
+function calculate(){
+  const mar=parseFloat(document.getElementById('mar').value);
+  const bv=parseFloat(document.getElementById('biome').value);
+  const inv=parseFloat(document.getElementById('invaded').value);
+  const dens=parseFloat(document.getElementById('density').value)||1;
+  const site=document.getElementById('catchment').value||'Site';
+  const coords=document.getElementById('coords').value||'—';
+  const cdate=dateUnknown?'Unknown':(document.getElementById('clearing-date').value||'');
+
+  if(isNaN(mar)||!mar){alert('Please enter the Mean Annual Runoff (MAR).');return}
+  if(isNaN(bv)||!bv){alert('Please select a biome type.');return}
+  if(isNaN(inv)||!inv){alert('Please enter the total invaded area (ha).');return}
+  const blocks=document.querySelectorAll('.sp-block');
+  if(!blocks.length){alert('Please add at least one species.');return}
+
+  let rows=[],totMm=0,totM3ha=0,totM3=0,err=false;
+  blocks.forEach((b,i)=>{
+    const nm=b.querySelector('.s-name').value;
+    const st=b.querySelector('.s-stage').value;
+    const cn=parseFloat(b.querySelector('.s-canopy').value);
+    if(!nm||!st||isNaN(cn)){alert('Complete all fields for species '+(i+1));err=true;return}
+    const f=SD[nm]||[0.5,0.5,0.25,0.1,0.25];
+    const ri=STAGES.indexOf(st);
+    const rf=f[ri>=0?ri:0];
+    const condHa=inv*dens;
+    const gMm=mar*rf*cn*bv;
+    const gM3ha=gMm*10;
+    const tot=gM3ha*condHa;
+    totMm+=gMm;totM3ha+=gM3ha;totM3+=tot;
+    rows.push({nm,st,cn,condHa,rf,gMm,gM3ha,tot});
+  });
+  if(err||!rows.length)return;
+
+  const yearsF=getYearsSince(cdate==='Unknown'?null:cdate);
+  const yearsRounded=yearsF?Math.floor(yearsF):null;
+  const cumM3=yearsF?totM3*yearsF:null;
+  const cumML=cumM3?cumM3/1000:null;
+
+  lastRows=rows;
+  lastMeta={mar,bv,inv,dens,site,coords,cdate:cdate||'Not specified',totMm,totM3ha,totM3,bvLabel:BMLAB[bv+'']||bv,yearsRounded,cumM3,cumML};
+
+  document.getElementById('r-mmyr').textContent=fmt(totMm);
+  document.getElementById('r-m3ha').textContent=fmt(totM3ha);
+  document.getElementById('r-total').textContent=fmtI(totM3);
+  document.getElementById('r-ml').textContent=fmt(totM3/1000,3);
+  document.getElementById('res-site').textContent=site;
+
+  // Cumulative card
+  const cumCard=document.getElementById('r-cumulative-card');
+  const banner=document.getElementById('retro-banner');
+  if(yearsRounded&&yearsRounded>0&&cumM3){
+    cumCard.style.display='';
+    document.getElementById('r-cumulative-label').textContent=`Cumulative gains (${yearsRounded} yr${yearsRounded>1?'s':''})`;
+    document.getElementById('r-cumulative').textContent=fmtI(cumM3);
+    document.getElementById('r-cumulative-unit').textContent=`m³ total · ${fmt(cumML,2)} ML`;
+    banner.innerHTML=`<div class="retro-note">
+      <strong>Retrospective accounting:</strong> Clearing started <strong>${cdate}</strong> — 
+      that is <strong>${yearsRounded} year${yearsRounded!==1?'s':''}</strong> of water recovery 
+      (${fmt(yearsF,1)} years exact). Annual gains of <strong>${fmtI(totM3)} m³</strong> 
+      × ${fmt(yearsF,1)} years = <strong>${fmtI(cumM3)} m³ (${fmt(cumML,2)} ML)</strong> 
+      cumulative water returned to the catchment.
+    </div>`;
+  } else {
+    cumCard.style.display='none';
+    banner.innerHTML=yearsRounded===null&&!dateUnknown&&cdate?
+      `<div class="retro-note" style="border-color:#c0392b22;background:#fdf0ee;color:#a33">Clearing date is in the future or invalid — cumulative gains not calculated.</div>`:'';
+  }
+
+  const pillDate=cdate&&cdate!=='Not specified'?cdate:(dateUnknown?'Unknown':'Not set');
+  document.getElementById('factor-row').innerHTML=[
+    `<span class="pill">Site: <strong>${site}</strong></span>`,
+    `<span class="pill">Coordinates: <strong>${coords}</strong></span>`,
+    `<span class="pill">Initial clearing: <strong>${pillDate}</strong></span>`,
+    `<span class="pill">MAR: <strong>${mar} mm/yr</strong></span>`,
+    `<span class="pill">Biome: <strong>${BMLAB[bv+'']||bv}</strong></span>`,
+    `<span class="pill">Invaded: <strong>${inv} ha</strong></span>`,
+    `<span class="pill">IAP density: <strong>${dens}</strong></span>`,
+    `<span class="pill">Condensed ha: <strong>${fmt(inv*dens,2)} ha</strong></span>`
+  ].join('');
+
+  document.getElementById('tbl-body').innerHTML=rows.map(r=>`<tr>
+    <td>${r.nm}</td><td>${r.st}</td><td>${(r.cn*100).toFixed(0)}%</td>
+    <td>${fmt(r.condHa,2)}</td><td>${r.rf}</td>
+    <td>${fmt(r.gMm)}</td><td>${fmt(r.gM3ha)}</td><td>${fmtI(r.tot)}</td>
+  </tr>`).join('')+
+  `<tr class="tr-total"><td colspan="5"><strong>Total</strong></td>
+    <td>${fmt(totMm)}</td><td>${fmt(totM3ha)}</td><td>${fmtI(totM3)}</td></tr>`;
+
+  document.getElementById('export-status').textContent='Ready to export. Download includes all inputs and cumulative figures.';
+  const el=document.getElementById('results');
+  el.classList.add('show');
+  el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function exportExcel(){
+  if(!lastRows.length){alert('No results to export. Run the calculation first.');return}
+  const reg=document.getElementById('register-cb').checked;
+  const ts=new Date().toISOString().slice(0,19).replace('T',' ');
+  const m=lastMeta;
+  const rows=[
+    ['Stewards of Nature — Water Gains Tracker','','','','','','','','','',''],
+    ['Exported:',ts,'','','','','','','','',''],
+    [],
+    ['SITE SUMMARY'],
+    ['Site / Catchment','GPS Coordinates','Date of Initial Clearing','Years Since Clearing','MAR (mm/yr)','Biome','Biome Factor',
+     'Total Invaded (ha)','IAP Density','Condensed ha','Registered',
+     'Annual Gains (mm/yr)','Annual Gains (m³/ha/yr)','Annual Gains (m³)','Annual Gains (ML)',
+     'Cumulative Gains (m³)','Cumulative Gains (ML)'],
+    [m.site,m.coords,m.cdate,m.yearsRounded??'N/A',m.mar,m.bvLabel,m.bv,m.inv,m.dens,+(m.inv*m.dens).toFixed(2),
+     reg?'Yes':'No',
+     +m.totMm.toFixed(2),+m.totM3ha.toFixed(2),Math.round(m.totM3),+(m.totM3/1000).toFixed(3),
+     m.cumM3?Math.round(m.cumM3):'N/A',m.cumML?+m.cumML.toFixed(3):'N/A'],
+    [],
+    ['SPECIES BREAKDOWN'],
+    ['Species','Stage','Canopy Cover (%)','Condensed ha','Reduction Factor',
+     'Gains (mm/yr)','Gains (m³/ha/yr)','Annual Total (m³)'],
+    ...lastRows.map(r=>[r.nm,r.st,+(r.cn*100).toFixed(0),+r.condHa.toFixed(2),r.rf,
+      +r.gMm.toFixed(2),+r.gM3ha.toFixed(2),Math.round(r.tot)]),
+    ['','','','','TOTAL',+m.totMm.toFixed(2),+m.totM3ha.toFixed(2),Math.round(m.totM3)],
+    [],
+    ['NOTES'],
+    ['Formula: Gains (m³/ha/yr) = MAR × Reduction Factor × Canopy Cover × Riparian Factor × 10'],
+    ['Cumulative gains = Annual total gains × years since initial clearing'],
+    ['Source: Le Maitre et al. (2016), Water SA 42(4) & RSB Water Impact Methodology'],
+    ['https://rsb.org/wp-content/uploads/2025/01/rsb-water-impact-methodology_water-gains-through-removal-of-invasive-alien-plants.pdf']
+  ];
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:30},{wch:24},{wch:22},{wch:16},{wch:14},{wch:28},{wch:13},
+    {wch:18},{wch:13},{wch:13},{wch:12},{wch:18},{wch:20},{wch:18},{wch:14},{wch:20},{wch:18}];
+  XLSX.utils.book_append_sheet(wb,ws,'Water Gains');
+  const fname=`SoN_WaterGains_${(m.site||'Site').replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb,fname);
+  document.getElementById('export-status').textContent='Downloaded: '+fname;
+}
+
+addSp();
+</script>
+</body>
+</html>
